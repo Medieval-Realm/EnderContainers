@@ -122,7 +122,7 @@ public class NMSPlayerUtil extends NMSUtil {
 
         // Load the player data (automatically handled by Bukkit API when they join)
         Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("YourPlugin"),
+                Bukkit.getPluginManager().getPlugin("EnderContainers"),
                 () -> offline.getPlayer(), // Asynchronous operations should be avoided for player loading
                 1L
         );
