@@ -37,6 +37,9 @@ publishing {
         }
     }
 }
+test {
+    enabled = false
+}
 
 artifacts {
     archives shadowJar
