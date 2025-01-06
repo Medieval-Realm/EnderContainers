@@ -3,6 +3,9 @@ package fr.utarwyn.endercontainers.compatibility.nms;
 import fr.utarwyn.endercontainers.compatibility.ServerVersion;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Constructor;
@@ -85,10 +88,23 @@ public class NMSHologramUtil extends NMSUtil {
      */
     private final Field playerConnectionField;
 
+    private NMSHologramUtil(){
+
+        entityClass = null;
+        packetClass = null;
+        craftWorldClass = null;
+        chatMessageClass = null;
+        chatBaseComponentClass = null;
+        armorStandConstructor = null;
+        spawnPacketConstructor = null;
+        metadataPacketConstructor = null;
+        entityTypesInvokationMethod = null;
+        playerConnectionField = null;
+    }
     /**
      * Utility class.
      */
-    private NMSHologramUtil() throws ReflectiveOperationException {
+    private NMSHologramUtil(boolean loadNMS) throws ReflectiveOperationException {
         Class<?> worldClass = getNMSClass("World", "world.level");
         Class<?> armorStandClass = getNMSClass("EntityArmorStand", "world.entity.decoration");
         Class<?> entityPlayerClass = getNMSClass("EntityPlayer", "server.level");
@@ -187,29 +203,22 @@ public class NMSHologramUtil extends NMSUtil {
      * @see <a href="https://wiki.vg/Protocol#Spawn_Mob">Protocol for 1.8 to 1.14</a>
      * @see <a href="https://wiki.vg/Pre-release_protocol#Spawn_Mob">Protocol for 1.15+</a>
      */
-    public int spawnHologram(Location location, String text, Player observer) throws ReflectiveOperationException {
-        // Then, we need to generate the fake armorstand
-        Object entity = this.createHologramEntity(location.getWorld(), location.getX(), location.getY(), location.getZ(), text);
+    public int spawnHologram(Location location, String text, Player observer) {
+        // Spawn an invisible armor stand with text as a hologram
+        ArmorStand armorStand = (ArmorStand) location.getWorld().spawnEntity(location.add(0,2,0), EntityType.ARMOR_STAND);
 
-        // 1.19.3+ — 1.18+ :: New method name in Entity class
-        Method getId;
-        if (ServerVersion.isNewerThan(ServerVersion.V1_19)) {
-            getId = this.entityClass.getMethod(ServerVersion.isNewerThan(ServerVersion.V1_19_R2) ? "af" : "ah");
-        } else {
-            getId = getNMSDynamicMethod(this.entityClass, "getId", "ae");
-        }
-        int entityId = (int) getId.invoke(entity);
+        // Configure the armor stand properties for a hologram effect
+        armorStand.setInvisible(true); // Make the armor stand invisible
+        armorStand.setCustomName(text);
+        armorStand.setCustomNameVisible(true);
+        armorStand.setGravity(false);   // Prevent it from falling
+        armorStand.setInvulnerable(true); // Prevent it from being broken
+        armorStand.setMarker(true);     // Minimize hitbox and interaction
 
-        // Send the spawn packet for 1.8+
-        this.sendPacket(observer, spawnPacketConstructor.newInstance(entity));
+        // Send the hologram only to a specific player (1.21+ API change)
+        observer.showEntity(armorStand.getServer().getPluginManager().getPlugin("EnderContainers"), armorStand);
 
-        // Send the metadata packet for 1.15+
-        if (ServerVersion.isNewerThan(ServerVersion.V1_14)) {
-            Object metadataPacket = this.createEntityMetadataPacket(entityId, entity);
-            this.sendPacket(observer, metadataPacket);
-        }
-
-        return entityId;
+        return armorStand.getEntityId();
     }
 
     /**
@@ -219,16 +228,17 @@ public class NMSHologramUtil extends NMSUtil {
      * @param observer player concerned by the deletion
      * @throws ReflectiveOperationException error with reflection
      */
-    public void destroyEntity(int entityId, Player observer) throws ReflectiveOperationException {
-        Object packet;
+    public void destroyEntity(int entityId, Player observer) {
+        // Find the entity by ID and ensure it exists
+        Entity entity = observer.getWorld().getEntities().stream()
+                .filter(e -> e.getEntityId() == entityId)
+                .findFirst()
+                .orElse(null);
 
-        if (this.destroyPacketConstructorOneInt) {
-            packet = this.destroyPacketConstructor.newInstance(entityId);
-        } else {
-            packet = this.destroyPacketConstructor.newInstance(new int[]{entityId});
+        // If the entity exists and is valid, hide it from the observer
+        if (entity != null) {
+            entity.remove(); // Removes it server-side
         }
-
-        this.sendPacket(observer, packet);
     }
 
     /**

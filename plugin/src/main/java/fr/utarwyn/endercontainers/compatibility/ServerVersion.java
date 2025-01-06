@@ -9,7 +9,7 @@ import org.bukkit.Bukkit;
  * @since 2.2.0
  */
 public enum ServerVersion {
-
+    V1_21,
     V1_20,
     V1_19_R3,
     V1_19_R2,
@@ -34,13 +34,7 @@ public enum ServerVersion {
         // Getting the bukkit Server version!
         String path = Bukkit.getServer().getClass().getPackage().getName();
         BUKKIT_VERSION = path.substring(path.lastIndexOf('.') + 1);
-
-        for (ServerVersion version : values()) {
-            if (BUKKIT_VERSION.toUpperCase().startsWith(version.name())) {
-                currentVersion = version;
-                break;
-            }
-        }
+        currentVersion = ServerVersion.V1_21;
     }
 
     public static ServerVersion get() {

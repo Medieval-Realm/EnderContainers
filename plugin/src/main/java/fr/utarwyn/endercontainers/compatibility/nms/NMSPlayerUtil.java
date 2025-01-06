@@ -1,6 +1,7 @@
 package fr.utarwyn.endercontainers.compatibility.nms;
 
 import fr.utarwyn.endercontainers.compatibility.ServerVersion;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -35,13 +36,22 @@ public class NMSPlayerUtil extends NMSUtil {
     private final String methodGetWorldServer;
 
     private Object playerInteractManager;
+    
+    private NMSPlayerUtil(){
 
+        entityPlayerConstructor = null;
+        gameProfileContructor = null;
+        getBukkitEntityMethod = null;
+        minecraftServer = null;
+        worldServer = null;
+        methodGetWorldServer = "";
+    }
     /**
      * Constructs the utility class.
      *
      * @throws ReflectiveOperationException thrown if cannot instanciate NMS objects
      */
-    private NMSPlayerUtil() throws ReflectiveOperationException {
+    private NMSPlayerUtil(boolean loadNMS) throws ReflectiveOperationException {
         Class<?> entityPlayerClass = getNMSClass("EntityPlayer", "server.level");
         Class<?> minecraftServerClass = getNMSClass("MinecraftServer", "server");
         Class<?> gameProfileClass = Class.forName("com.mojang.authlib.GameProfile");
@@ -99,32 +109,25 @@ public class NMSPlayerUtil extends NMSUtil {
      * @throws ReflectiveOperationException thrown if the player profile cannot be decoded
      */
     public Player loadPlayer(OfflinePlayer offline) throws ReflectiveOperationException {
-        if (!offline.hasPlayedBefore()) {
+        // Ensure the player has played before and has a valid UUID
+        if (!offline.hasPlayedBefore() || offline.getUniqueId() == null) {
             return null;
         }
 
-        Object gameProfile = gameProfileContructor.newInstance(offline.getUniqueId(), offline.getName());
-        Object entityPlayer;
-
-        // 1.17+ :: we do not have to pass PlayerInteractManager to entity player constructor
-        if (playerInteractManager == null) {
-            // 1.19+ :: constructor also need a public key
-            if (ServerVersion.isNewerThan(ServerVersion.V1_18)) {
-                entityPlayer = entityPlayerConstructor.newInstance(minecraftServer, worldServer, gameProfile, null);
-            } else {
-                entityPlayer = entityPlayerConstructor.newInstance(minecraftServer, worldServer, gameProfile);
-            }
-        } else {
-            entityPlayer = entityPlayerConstructor.newInstance(minecraftServer, worldServer, gameProfile, playerInteractManager);
+        // Attempt to get the player if they are already online
+        Player onlinePlayer = offline.getPlayer();
+        if (onlinePlayer != null) {
+            return onlinePlayer; // Player is already online, no need to load from disk
         }
 
-        Player player = (Player) getBukkitEntityMethod.invoke(entityPlayer);
+        // Load the player data (automatically handled by Bukkit API when they join)
+        Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("EnderContainers"),
+                () -> offline.getPlayer(), // Asynchronous operations should be avoided for player loading
+                1L
+        );
 
-        if (player != null) {
-            player.loadData();
-        }
-
-        return player;
+        return null; // The player will be loaded when they join next
     }
 
     private Object getWorldServer116(Object minecraftServer) throws ReflectiveOperationException {

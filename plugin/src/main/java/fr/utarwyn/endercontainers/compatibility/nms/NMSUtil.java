@@ -39,7 +39,7 @@ public abstract class NMSUtil {
         // Using remapped source code of Minecraft server? 1.17+
         MC_PACKAGE = ServerVersion.isNewerThan(ServerVersion.V1_16) ? "net.minecraft." : null;
         NMS_PACKAGE = "net.minecraft.server." + version + ".";
-        CRAFTBUKKIT_PACKAGE = "org.bukkit.craftbukkit." + version + ".";
+        CRAFTBUKKIT_PACKAGE = "org.bukkit.craftbukkit.";
 
         try {
             Class<?> asyncCatcher = Class.forName("org.spigotmc.AsyncCatcher");
@@ -78,7 +78,7 @@ public abstract class NMSUtil {
      */
     protected static Class<?> getNMSClass(String className, String package1_17)
             throws ClassNotFoundException {
-        return Class.forName((MC_PACKAGE != null ? MC_PACKAGE + package1_17 + "." : NMS_PACKAGE) + className);
+        return Class.forName("org.bukkit.craftbukkit." + className);
     }
 
     /**
